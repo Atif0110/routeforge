@@ -1,0 +1,16 @@
+{
+  "manifest_version": 3,
+  "name": "RouteForge Router",
+  "version": "0.2.0",
+  "description": "Routes prompts through the local Trust classifier and can safely hand off to a configured ChatGPT or Claude model label.",
+  "permissions": ["storage"],
+  "host_permissions": ["http://127.0.0.1:8000/*", "http://localhost:8000/*"],
+  "background": {"service_worker": "service_worker.js"},
+  "action": {"default_title": "RouteForge Router", "default_popup": "popup.html"},
+  "content_scripts": [{
+    "matches": ["https://chatgpt.com/*", "https://chat.openai.com/*", "https://claude.ai/*"],
+    "js": ["provider_adapters.js", "content.js"],
+    "css": ["content.css"],
+    "run_at": "document_idle"
+  }]
+}

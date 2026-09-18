@@ -1,0 +1,9 @@
+services:
+  - type: web
+    name: routeforge
+    runtime: docker
+    plan: free
+    healthCheckPath: /healthz
+    envVars:
+      - key: ROUTEFORGE_PUBLIC_MODE
+        value: "1"

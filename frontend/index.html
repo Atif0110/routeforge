@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#08090b">
+  <title>RouteForge — Model Routing Infrastructure</title>
+  <link rel="stylesheet" href="/frontend/styles.css">
+</head>
+<body>
+  <div class="ambient ambient-a"></div><div class="ambient ambient-b"></div>
+  <header class="nav shell">
+    <a class="brand" href="/" aria-label="RouteForge home"><span class="brand-mark"><i></i><i></i><i></i></span><span>routeforge</span></a>
+    <nav><a class="active" href="/">Console</a><a href="/docs" target="_blank" rel="noreferrer">API</a><a href="https://github.com/" target="_blank" rel="noreferrer">Docs ↗</a></nav>
+    <div id="health" class="health"><span class="pulse"></span><span>Connecting</span></div>
+  </header>
+
+  <main class="shell">
+    <section class="hero">
+      <div class="hero-copy">
+        <div class="kicker"><span class="kicker-line"></span> INTELLIGENT MODEL ROUTING</div>
+        <h1>One prompt.<br><em>Best model.</em></h1>
+        <p>Route workloads across your model fleet using quality, cost and policy — before a token is generated.</p>
+        <div class="hero-meta"><span><b class="live-dot"></b> Router online</span><span>11 candidate models</span><span>Local inference</span></div>
+      </div>
+      <div class="orbit-card" aria-hidden="true">
+        <div class="orbit-grid"></div><div class="orbit-ring ring-1"></div><div class="orbit-ring ring-2"></div>
+        <div class="core"><span>RF</span><small>ENGINE</small></div>
+        <div class="node n1">GPT-4</div><div class="node n2">CLAUDE</div><div class="node n3">MIXTRAL</div><div class="node n4">LLAMA</div>
+        <div class="beam b1"></div><div class="beam b2"></div><div class="beam b3"></div><div class="beam b4"></div>
+      </div>
+    </section>
+
+    <section class="workspace">
+      <div class="workspace-main">
+        <div class="section-label"><span>01</span> ROUTE A PROMPT</div>
+        <div class="composer">
+          <div class="composer-top"><div><span class="label">INPUT</span><span class="privacy">Processed by RouteForge · not sent to a provider</span></div><span id="charCount">0 / 200k</span></div>
+          <textarea id="prompt" maxlength="200000" placeholder="Describe the task you want an AI model to handle…" autofocus></textarea>
+          <div class="composer-bottom">
+            <div class="cost-control"><div class="control-head"><span>Cost sensitivity</span><strong id="costValue">Balanced · 50%</strong></div><input id="cost" type="range" min="0" max="100" value="50" aria-label="Cost sensitivity"></div>
+            <button id="routeBtn" class="route-btn"><span class="btn-icon">↗</span><span class="btn-label">Route prompt</span><span class="shortcut">⌘↵</span></button>
+          </div>
+          <div id="error" class="error" role="alert" hidden></div>
+        </div>
+      </div>
+      <aside class="side-panel">
+        <div class="section-label"><span>02</span> POLICY</div>
+        <div class="policy-card">
+          <div class="policy-row"><span>Strategy</span><strong>Quality × Cost</strong></div>
+          <div class="policy-row"><span>Exploration</span><strong>30%</strong></div>
+          <div class="policy-row"><span>Candidates</span><strong>11</strong></div>
+          <div class="policy-divider"></div>
+          <p>RouteForge scores eligible models and selects the highest-utility candidate, with controlled exploration.</p>
+        </div>
+        <div class="tip"><span>⌘</span><div><strong>Fast route</strong><p>Press ⌘ Enter from anywhere in the prompt.</p></div></div>
+      </aside>
+    </section>
+
+    <section id="result" class="result-section" hidden>
+      <div class="section-label"><span>03</span> ROUTING DECISION <span id="resultTime" class="section-status"></span></div>
+      <div class="decision-grid">
+        <div class="decision-card reveal">
+          <div class="decision-top"><span class="decision-caption">SELECTED MODEL</span><span id="mode" class="mode-pill">SCORED</span></div>
+          <div id="selectedModel" class="model-name">—</div>
+          <div class="decision-sub">Recommended by the active routing policy</div>
+          <div class="signal-row"><div class="signal"><span>Latency</span><strong id="latency">—</strong></div><div class="signal"><span>Quality</span><strong id="quality">—</strong></div><div class="signal"><span>Utility</span><strong id="utility">—</strong></div></div>
+        </div>
+        <div class="ranking-card reveal">
+          <div class="ranking-head"><span>MODEL RANKING</span><span id="candidateCount">— candidates</span></div>
+          <div id="candidates" class="candidates"></div>
+        </div>
+      </div>
+      <div class="decision-foot"><span>Request <code id="requestId">—</code></span><span>Router decides; provider generates.</span></div>
+    </section>
+
+    <section class="history-section">
+      <div class="section-label"><span>04</span> RECENT ROUTES <button id="clearHistory" class="clear">Clear local history</button></div>
+      <div id="historyList" class="history-grid"><div class="empty-history">Your recent routing decisions will appear here.</div></div>
+    </section>
+  </main>
+  <footer class="shell footer"><span>ROUTEFORGE ENGINE</span><span>select-only · provider independent</span><a href="/docs" target="_blank" rel="noreferrer">Open API reference ↗</a></footer>
+  <script src="/frontend/app.js"></script>
+</body>
+</html>

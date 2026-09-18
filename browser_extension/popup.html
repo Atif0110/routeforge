@@ -1,0 +1,27 @@
+<!doctype html>
+<meta charset="utf-8">
+<style>
+body{width:390px;background:#101318;color:#eef1f4;font:13px system-ui;padding:16px;margin:0}h3{margin:0 0 6px}p{color:#9aa3ad;line-height:1.45}.section{border-top:1px solid #292f36;margin-top:14px;padding-top:12px}label{display:block;margin:8px 0;color:#cdd3da}input[type=text]{width:100%;box-sizing:border-box;background:#0b0e12;color:#eef1f4;border:1px solid #343b44;border-radius:7px;padding:7px}.mapping{display:grid;grid-template-columns:1.2fr 1fr 1fr;gap:7px;align-items:center;margin:7px 0}.mapping code{font-size:10px;color:#aeb6c0;overflow-wrap:anywhere}.mapping input{width:100%;box-sizing:border-box}button{margin-top:10px;background:#eef1f4;color:#101318;border:0;border-radius:7px;padding:8px 11px;font-weight:700;cursor:pointer}.muted{font-size:11px;color:#747e89}#status{margin-top:8px;font-size:11px;color:#9aa3ad}.scroll{max-height:330px;overflow:auto;padding-right:4px}</style>
+<h3>RouteForge Router</h3>
+<p>Route the current prompt through the local classifier. Handoff is opt-in and only happens when a provider mapping is configured.</p>
+<div class="section">
+  <label><input id="autoSelect" type="checkbox"> Auto-select mapped provider model</label>
+  <label><input id="autoSubmit" type="checkbox"> Auto-submit after successful selection</label>
+</div>
+<div class="section">
+  <strong>Provider model mappings</strong>
+  <p class="muted">Enter the exact label visible in each provider's model picker. Blank means: route only, do not attempt a provider handoff.</p>
+  <div class="mapping"><strong>Router model</strong><strong>ChatGPT label</strong><strong>Claude label</strong></div>
+  <div id="mappings" class="scroll"></div>
+  <button id="save">Save settings</button>
+  <div id="status"></div>
+</div>
+<div class="section"><p class="muted">No API keys, cookies, session tokens, or credentials are stored. The extension only talks to the local router.</p></div>
+<script>
+const MODELS=["WizardLM/WizardLM-13B-V1.2","claude-instant-v1","claude-v1","claude-v2","gpt-3.5-turbo-1106","gpt-4-1106-preview","meta/code-llama-instruct-34b-chat","meta/llama-2-70b-chat","mistralai/mistral-7b-chat","mistralai/mixtral-8x7b-chat","zero-one-ai/Yi-34B-Chat"];
+const $=id=>document.getElementById(id);
+function key(model){return btoa(unescape(encodeURIComponent(model))).replace(/[^a-zA-Z0-9]/g,"_")}
+function esc(s){return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/\"/g,"&quot;")}
+(async()=>{const s=await chrome.storage.local.get({autoSelect:true,autoSubmit:false,mappings:{}});$("autoSelect").checked=s.autoSelect;$("autoSubmit").checked=s.autoSubmit;const cg=s.mappings?.chatgpt||{},cl=s.mappings?.claude||{};MODELS.forEach(model=>{const row=document.createElement("div");row.className="mapping";row.innerHTML=`<code title="${esc(model)}">${esc(model)}</code><input type="text" data-provider="chatgpt" data-model="${key(model)}" value="${esc(cg[model]||"")}"><input type="text" data-provider="claude" data-model="${key(model)}" value="${esc(cl[model]||"")}">`;$("mappings").appendChild(row);});})();
+$("save").addEventListener("click",async()=>{const mappings={chatgpt:{},claude:{}};document.querySelectorAll("#mappings input").forEach(input=>{const model=MODELS.find(m=>key(m)===input.dataset.model);if(model&&input.value.trim())mappings[input.dataset.provider][model]=input.value.trim();});await chrome.storage.local.set({autoSelect:$("autoSelect").checked,autoSubmit:$("autoSubmit").checked,mappings});$("status").textContent="Saved.";});
+</script>
