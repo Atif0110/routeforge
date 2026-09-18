@@ -47,6 +47,7 @@ include = [
   "/src",
   "/tests",
   "/browser_extension",
+  "/frontend",
   "/Dockerfile",
   "/LICENSE",
   "/Makefile",
