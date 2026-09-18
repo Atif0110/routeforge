@@ -1,6 +1,10 @@
-# pyright: reportUnknownMemberType=false, reportUnknownVariableType=false
+# pyright: reportUnknownMemberType=false, reportUnknownVariableType=false, reportPrivateUsage=false
 from __future__ import annotations
 
+from typing import cast
+
+import pytest
+from fastapi import Request
 from fastapi.testclient import TestClient
 
 from take_home_router.api import create_app
@@ -116,8 +120,12 @@ def test_http_serves_frontend(service: ClassifierService) -> None:
     assert "v1/route" in asset.text
 
 
-def test_public_guard_is_disabled_by_default(monkeypatch) -> None:
+def test_public_guard_is_disabled_by_default(monkeypatch: pytest.MonkeyPatch) -> None:
     from take_home_router.api import _public_guard
 
     monkeypatch.delenv("ROUTEFORGE_PUBLIC_MODE", raising=False)
-    assert _public_guard(type("Req", (), {"client": None})(), 999999) is None
+    request = cast(
+        Request,
+        type("Req", (), {"client": None})(),
+    )
+    assert _public_guard(request, 999999) is None
