@@ -1,4 +1,4 @@
-# RouteForge: Intelligent Model Routing
+# RouteForge- Intelligent Model Routing
 
 This repository contains a prompt-routing backend. Given a prompt, it scores the configured language models and returns the model that should handle the request.
 
