@@ -31,7 +31,7 @@ def test_extension_has_opt_in_handoff_and_safe_failure() -> None:
     assert "autoSubmit" in js
     assert "Model selected. Send button was not found" in js
     assert "exact label visible in each provider's model picker" in popup
-    assert "data-provider=\"chatgpt\"" in popup
-    assert "data-provider=\"claude\"" in popup
+    assert 'data-provider="chatgpt"' in popup
+    assert 'data-provider="claude"' in popup
     assert "gpt-4-1106-preview" in popup
     assert "claude-v2" in popup

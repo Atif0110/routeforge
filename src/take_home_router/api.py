@@ -46,10 +46,7 @@ def _public_guard(request: Request, prompt_size: int | None = None) -> JSONRespo
         return JSONResponse(
             status_code=413,
             content={
-                "detail": (
-                    f"Public demo prompts are limited to "
-                    f"{_PUBLIC_MAX_PROMPT:,} characters."
-                )
+                "detail": (f"Public demo prompts are limited to {_PUBLIC_MAX_PROMPT:,} characters.")
             },
         )
     client = request.client.host if request.client else "unknown"
@@ -60,9 +57,7 @@ def _public_guard(request: Request, prompt_size: int | None = None) -> JSONRespo
             _public_hits[client] = recent
             response = JSONResponse(
                 status_code=429,
-                content={
-                    "detail": "Rate limit reached. Please wait a minute and try again."
-                },
+                content={"detail": "Rate limit reached. Please wait a minute and try again."},
             )
             response.headers["Retry-After"] = "60"
             return response
@@ -142,4 +137,3 @@ def _service(request: Request) -> ClassifierService:
 
 
 app = create_app()
-
