@@ -3,12 +3,12 @@
 
 from __future__ import annotations
 
-from collections.abc import AsyncGenerator
-from contextlib import asynccontextmanager
-from pathlib import Path
 import os
 import threading
 import time
+from collections.abc import AsyncGenerator
+from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -30,6 +30,7 @@ def _frontend_path() -> Path:
         return repository_path
     return Path(__file__).resolve().parent / "frontend" / "index.html"
 
+
 _PUBLIC_LIMIT = 60
 _PUBLIC_WINDOW = 60.0
 _PUBLIC_MAX_PROMPT = 20_000
@@ -44,7 +45,12 @@ def _public_guard(request: Request, prompt_size: int | None = None) -> JSONRespo
     if prompt_size is not None and prompt_size > _PUBLIC_MAX_PROMPT:
         return JSONResponse(
             status_code=413,
-            content={"detail": f"Public demo prompts are limited to {_PUBLIC_MAX_PROMPT:,} characters."},
+            content={
+                "detail": (
+                    f"Public demo prompts are limited to "
+                    f"{_PUBLIC_MAX_PROMPT:,} characters."
+                )
+            },
         )
     client = request.client.host if request.client else "unknown"
     now = time.monotonic()
@@ -54,7 +60,9 @@ def _public_guard(request: Request, prompt_size: int | None = None) -> JSONRespo
             _public_hits[client] = recent
             response = JSONResponse(
                 status_code=429,
-                content={"detail": "Rate limit reached. Please wait a minute and try again."},
+                content={
+                    "detail": "Rate limit reached. Please wait a minute and try again."
+                },
             )
             response.headers["Retry-After"] = "60"
             return response

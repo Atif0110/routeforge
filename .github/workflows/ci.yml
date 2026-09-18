@@ -54,4 +54,4 @@ jobs:
             --data '{"prompt":"CI container smoke test"}' \
             http://127.0.0.1:8000/v1/route \
             | python -c 'import json, sys; assert json.load(sys.stdin)["selected_model"]'
-          curl --fail --silent http://127.0.0.1:8000/ | grep -F "Prompt Router"
+          curl --fail --silent http://127.0.0.1:8000/ | grep -F "RouteForge"

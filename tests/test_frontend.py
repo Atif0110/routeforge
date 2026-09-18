@@ -1,3 +1,4 @@
+import json
 from pathlib import Path
 
 
@@ -14,9 +15,8 @@ def test_frontend_assets_are_present_and_wired() -> None:
 
 
 def test_browser_extension_targets_both_providers() -> None:
-    import json
-
-    manifest = json.loads((ROOT / "browser_extension" / "manifest.json").read_text(encoding="utf-8"))
+    manifest_path = ROOT / "browser_extension" / "manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
     matches = manifest["content_scripts"][0]["matches"]
     assert "https://chatgpt.com/*" in matches
     assert "https://claude.ai/*" in matches
