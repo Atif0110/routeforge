@@ -1,18 +1,16 @@
 # RouteForge - Intelligent Model Routing
 
-RouteForge is a provider-independent prompt-routing backend. Given a prompt and optional routing preferences, it scores the configured language models and returns the model that should handle the request.
+RouteForge is a provider-independent prompt-routing backend. Given a prompt, it scores the configured language models and returns the model that should handle the request.
 
-The repository includes the trained classifier artifacts, routing policy, FastAPI service, command-line interface, browser console, Chromium browser integration prototype, deployment configuration, and tests.
+This repository packages the **core S2 Sweep implementation** at its savings setting, not a TrustRouter-plus-Burr integration. Everything needed to run it is included here, with no Burr or TrustRouter framework dependency at runtime.
 
-RouteForge does not generate answers or call a model provider from the backend. Its core job ends after it returns a routing decision and selected model ID.
+The repository includes the trained classifier artifacts, routing policy, FastAPI service, command-line interface, browser console, browser integration prototype, and tests.
 
-**Implementation note:** The browser extension is a separate integration layer. It can optionally map the selected historical RouterBench model ID to a visible model in ChatGPT or Claude and, when explicitly enabled by the user, submit the prompt. The backend itself remains provider-independent.
+RouteForge does not generate an answer or call a model provider from the backend. Its job ends after it returns a model ID and the associated routing information.
 
 ---
 
-## What RouteForge Does
-
-RouteForge combines a trained S2 classifier with a quality/cost routing policy.
+## How RouteForge Works
 
 ```text
 Prompt
@@ -24,36 +22,32 @@ Request validation
 Prompt feature extraction
   |
   v
-Per-model quality + token predictions
+Per-model quality and token predictions
   |
   v
 Quality/cost routing policy
   |
-  +----------------------------+
-  |                            |
-  v                            v
-Scored selection          Random exploration
-  |                            |
-  +-------------+--------------+
-                |
-                v
-        Selected model ID
-        + candidate scores
-        + routing metadata
+  v
+Selected model ID + ranked candidate scores
 ```
 
-Each request uses the S2 quality/cost winner 70% of the time and selects uniformly from the eligible models 30% of the time.
+For each request, RouteForge:
 
-The response exposes:
+1. Validates the incoming request.
+2. Extracts the features required by the bundled S2 classifier.
+3. Generates per-model quality and token predictions.
+4. Applies the configured quality/cost routing policy.
+5. Selects a model from the eligible candidate set.
+6. Returns the selected model, routing policy information, and candidate scores.
 
-- `policy.selection_mode`: `scored` or `random`
-- `random_selection_probability`: `0.3`
-- `selected_model`
-- candidate routing scores
-- optional explanations
-- request ID and latency information
+The final serving policy uses the S2 quality-cost winner 70% of the time and selects uniformly from eligible models 30% of the time.
 
-The random exploration layer is intentionally separated from the offline classifier benchmark.
+The API exposes this through:
+
+- `policy.selection_mode`
+- `random_selection_probability`
+
+where `selection_mode` is either `scored` or `random`, and the configured random-selection probability is `0.3`.
 
 ---
 
@@ -67,53 +61,60 @@ evidence/offline_routerbench_summary.json
 
 describe the classifier-only policy before the exploration layer.
 
-They do not measure the final stochastic serving policy and should not be interpreted as live production performance.
+They do not measure the final stochastic serving policy.
+
+Therefore, the benchmark should be interpreted as an offline evaluation of the classifier and routing policy rather than as a production serving-performance claim.
 
 ---
 
-## Provider Independence
+## API
 
-RouteForge is designed to sit between an application and multiple LLM providers.
-
-The backend does not require provider API credentials and does not send prompts to OpenAI, Anthropic, or another model provider.
-
-The routing boundary is:
+The main routing endpoint is:
 
 ```text
-Application / Browser
-        |
-        | POST /v1/route
-        v
-RouteForge
-        |
-        v
-selected_model
+POST /v1/route
 ```
 
-The returned `selected_model` is a routing decision, not a generation request.
+It accepts a prompt and optional routing settings and returns a `selected_model` field.
+
+That field is the handoff point for a consuming application or provider integration.
+
+### Additional endpoints
+
+- `GET /healthz`
+- `GET /v1/models`
+- `GET /docs`
+
+`/healthz` provides service health information.
+`/v1/models` returns the supported model IDs.
+`/docs` provides the interactive FastAPI documentation.
+
+### Example Request
+
+```json
+{
+  "prompt": "Write a Python function that merges two sorted lists.",
+  "metadata": {
+    "cost_saving_preference": 50,
+    "include_explanations": true,
+    "request_id": "example-123"
+  }
+}
+```
+
+`metadata` is optional.
+
+It can also contain a `candidate_models` list to restrict the models considered by the router.
+
+The response includes the selected model, routing policy details, and scores for the eligible candidates.
 
 ---
 
-## How to Run RouteForge
+## Running RouteForge Locally
 
-### Requirements
+The project requires Python 3.11 or newer and `uv`.
 
-- Python 3.11+
-- `uv`
-
-LightGBM requires an OpenMP runtime.
-
-On macOS:
-
-```bash
-brew install libomp
-```
-
-On other platforms, install the appropriate OpenMP runtime for your operating system if it is not already available.
-
-### Install
-
-From the repository root:
+### Install dependencies
 
 ```bash
 uv sync --dev
@@ -131,21 +132,9 @@ The API will be available at:
 http://127.0.0.1:8000
 ```
 
-FastAPI interactive documentation:
+### Send a routing request
 
-```text
-http://127.0.0.1:8000/docs
-```
-
----
-
-## API
-
-### `POST /v1/route`
-
-Submit a prompt to the router.
-
-Example:
+In another terminal:
 
 ```bash
 curl -s http://127.0.0.1:8000/v1/route \
@@ -153,53 +142,9 @@ curl -s http://127.0.0.1:8000/v1/route \
   --data @examples/request.json
 ```
 
-Example request:
+### Use the CLI directly
 
-```json
-{
-  "prompt": "Write a Python function that merges two sorted lists.",
-  "metadata": {
-    "cost_saving_preference": 50,
-    "include_explanations": true,
-    "request_id": "example-123"
-  }
-}
-```
-
-`metadata` is optional.
-
-It can also contain:
-
-```json
-{
-  "candidate_models": [
-    "model-id-1",
-    "model-id-2"
-  ]
-}
-```
-
-This limits routing to the requested eligible models.
-
-The response contains the selected model, routing policy information, and scores for eligible candidates.
-
-### `GET /healthz`
-
-Returns the service health status.
-
-Use this endpoint for local checks and deployment health checks.
-
-### `GET /v1/models`
-
-Returns the supported model IDs configured by RouteForge.
-
----
-
-## Command-Line Interface
-
-RouteForge can also be used without starting the HTTP server.
-
-Example:
+Route a prompt without starting the server:
 
 ```bash
 uv run routeforge route \
@@ -207,10 +152,62 @@ uv run routeforge route \
   --explain
 ```
 
-To start the API through the CLI:
+---
+
+## LightGBM Runtime Requirement
+
+The S2 classifier uses LightGBM.
+
+On macOS, an OpenMP runtime may be required:
 
 ```bash
-uv run routeforge serve --host 127.0.0.1 --port 8000
+brew install libomp
+```
+
+Linux and Windows environments may require the corresponding OpenMP runtime provided by the operating system or Python environment.
+
+---
+
+## Repository Layout
+
+```text
+routeforge/
+├── src/
+│   └── take_home_router/
+│       ├── classifier
+│       ├── routing policy
+│       ├── API
+│       └── CLI
+│
+├── artifacts/
+│   └── s2/
+│       ├── trained classifier
+│       └── calibration / metadata files
+│
+├── config/
+│   └── router.json
+│
+├── evidence/
+│   └── offline_routerbench_summary.json
+│
+├── examples/
+│   └── request.json
+│
+├── browser_extension/
+│   └── Chrome / Chromium integration prototype
+│
+├── frontend/
+│   └── RouteForge browser console
+│
+├── tests/
+│   ├── unit tests
+│   ├── API tests
+│   └── browser / integration tests
+│
+├── render.yaml
+├── Dockerfile
+├── Makefile
+└── pyproject.toml
 ```
 
 ---
@@ -232,94 +229,89 @@ Then open:
 http://127.0.0.1:8000/
 ```
 
-The console:
-
-- Accepts a prompt.
-- Sends it to `POST /v1/route`.
-- Displays the selected model.
-- Displays the routing selection mode.
-- Displays latency.
-- Displays candidate utilities/scores.
-- Stores recent route history only in browser local storage.
-
-The backend remains select-only and does not send the prompt to a model provider.
-
----
-
-## Browser Integration: ChatGPT + Claude
-
-The repository contains a Chrome/Chromium Manifest V3 browser integration prototype under:
-
-```text
-browser_extension/
-```
-
-It supports:
-
-- `chatgpt.com`
-- `chat.openai.com`
-- `claude.ai`
-
-The extension communicates with the local RouteForge API.
-
-### Basic setup
-
-1. Start RouteForge locally.
-2. Open the browser's extension developer mode.
-3. Load `browser_extension/` as an unpacked extension.
-4. Open a supported provider website.
-5. Use the Route button or:
-
-```text
-Ctrl + Shift + R
-```
-
-On macOS:
-
-```text
-Cmd + Shift + R
-```
-
-The extension captures the current prompt and requests a routing decision from:
+The console sends each submitted prompt to:
 
 ```text
 POST /v1/route
 ```
 
+and displays:
+
+- Selected model
+- Routing selection mode
+- Routing latency
+- Candidate utilities
+- Routing results
+
+Recent routes are stored only in the browser's local storage.
+
+The backend remains select-only and does not send prompts to a model provider.
+
 ---
 
-## Provider Model Compatibility
+## Browser Integrations
 
-The classifier's bundled model IDs are historical RouterBench model IDs.
+The `browser_extension/` directory contains a Chrome/Chromium Manifest V3 integration prototype for:
 
-Those IDs are not automatically assumed to be identical to the model labels currently displayed by ChatGPT or Claude.
+- `chatgpt.com`
+- `chat.openai.com`
+- `claude.ai`
 
-RouteForge therefore uses an explicit provider compatibility layer.
+Load the directory as an unpacked extension using the browser's extension developer mode.
 
-A model is only selected in the provider UI when:
+Start the local RouteForge router first:
 
-- A provider-specific mapping exists.
-- The mapped provider model is visible.
-- The adapter has sufficient confidence in the UI control.
-
-Otherwise, the extension reports the routing decision without modifying the provider page.
-
-This separation is intentional:
-
-```text
-Historical RouterBench ID
-          |
-          v
-RouteForge routing decision
-          |
-          v
-Provider adapter
-          |
-          v
-Current provider UI model label
+```bash
+uv run routeforge serve --host 127.0.0.1 --port 8000
 ```
 
-For production use, provider integrations should preferably use first-party provider APIs where available. If browser automation remains necessary, provider adapters should be versioned and covered by end-to-end browser tests because consumer websites can change independently.
+The extension adds a small **Route** button to supported pages and provides:
+
+```text
+Ctrl + Shift + R
+```
+
+on Windows/Linux and:
+
+```text
+Cmd + Shift + R
+```
+
+on macOS.
+
+The extension captures the current prompt and asks the local RouteForge API for a routing decision.
+
+---
+
+## Provider Compatibility Layer
+
+The provider websites expose different model catalogs and their user interfaces can change independently.
+
+The classifier's bundled IDs are historical RouterBench model IDs. RouteForge therefore uses an explicit compatibility layer.
+
+A model is only selected in a provider UI when:
+
+- A high-confidence mapping exists.
+- A visible model control can be identified safely.
+
+Otherwise, the extension reports the routing decision and leaves the provider page untouched.
+
+This separation keeps the classifier independent from unstable consumer website interfaces.
+
+A production deployment should replace UI scraping with first-party provider APIs where available, maintain versioned provider adapters, and keep a server-side model registry with health and capability metadata.
+
+---
+
+## Provider Credentials
+
+RouteForge does not store:
+
+- Provider API keys
+- Browser cookies
+- Session tokens
+- Browser credentials
+
+The backend itself is provider-independent and does not require provider API credentials to perform routing.
 
 ---
 
@@ -327,238 +319,196 @@ For production use, provider integrations should preferably use first-party prov
 
 The browser extension uses a conservative provider-adapter layer.
 
-### Configure mappings
+It separates the router's historical model ID from the model label used by the provider website instead of assuming the IDs are interchangeable.
+
+The flow is:
 
 1. Install `browser_extension/` as an unpacked Chromium extension.
 2. Open the extension popup.
-3. Enable **Auto-select mapped provider model** if you want automatic model selection.
+3. Enable **Auto-select mapped provider model** if desired.
 4. Enter the exact provider model label currently shown in the provider model picker for each Router model you want to map.
-5. Mappings are stored separately by provider.
-
-### Route a prompt
-
-1. Type a prompt on ChatGPT or Claude.
-2. Click **Route** or press `Ctrl/Cmd + Shift + R`.
-3. The extension calls `/v1/route`.
-4. If a mapping exists and a high-confidence model control is found, the adapter attempts to select the mapped provider model.
-5. If no mapping or no safe model control exists, the extension reports the routing decision and leaves the page unchanged.
+5. The extension stores mappings separately by provider.
+6. Type a prompt on the provider site.
+7. Click **Route** or press `Ctrl/⌘+Shift+R`.
+8. The extension calls `/v1/route`.
+9. If a mapping exists and a high-confidence model control is available, the extension attempts to select that provider model.
+10. If no mapping or safe model control exists, it reports the routing decision without changing the page.
 
 ### Auto-submit
 
-Auto-submit is optional and disabled by default.
+Auto-submit is optional and disabled unless explicitly enabled.
 
-When enabled, the extension still performs safety checks before submission. If the prompt changes during routing or the send control cannot be identified safely, the extension does not submit the prompt.
+If the prompt changes during routing or the send control cannot be identified safely, the extension does not submit anything.
 
-The extension does not fabricate provider mappings and does not store provider credentials or session tokens.
+This keeps the browser handoff conservative and avoids automatically interacting with a provider page when the extension cannot confidently identify the intended control.
 
 ---
 
 ## Architecture
 
 ```text
-                         +----------------------+
-                         | Browser Console      |
-                         +----------+-----------+
-                                    |
-                         +----------v-----------+
-                         | Browser Extension    |
-                         | ChatGPT / Claude     |
-                         +----------+-----------+
-                                    |
-                                    | POST /v1/route
-                                    v
-                         +----------------------+
-                         | FastAPI API          |
-                         +----------+-----------+
-                                    |
-                                    v
-                         +----------------------+
-                         | ClassifierService    |
-                         +----------+-----------+
-                                    |
-                    +---------------+---------------+
-                    |                               |
-                    v                               v
-             +-------------+                 +-------------+
-             | S2 Classifier|                 | Routing     |
-             |              |                 | Policy      |
-             +------+------+                 +------+------+
-                    |                               |
-                    +---------------+---------------+
-                                    |
-                                    v
-                            selected_model
+Browser Console / Browser Extension
+              |
+              | POST /v1/route
+              v
+        FastAPI API
+              |
+              v
+      ClassifierService
+          /       \
+         /         \
+        v           v
+ S2 classifier   Routing policy
+        \           /
+         \         /
+          v       v
+        selected_model
 ```
 
 The integration boundary is intentionally provider-independent.
 
-`selected_model` represents a routing decision rather than a generation request.
+`selected_model` represents a routing decision, not a generation request.
+
+This keeps the classifier testable and avoids coupling the trained artifact to unstable consumer website internals.
 
 ---
 
 ## Failure Handling
 
-RouteForge validates requests and candidate model IDs through its Pydantic API contracts.
+The web UI provides explicit:
 
-The web console provides explicit:
+- Validation states
+- Loading states
+- Network error states
+- API error states
 
-- validation states
-- loading states
-- API/network error states
+The browser extension reports an unavailable local router or routing error without altering the provider page.
 
-The browser extension reports:
-
-- an unavailable local router
-- routing failures
-- missing provider mappings
-- unavailable or ambiguous provider controls
-
-without modifying the provider page when it cannot safely complete the handoff.
+The backend validates request shape and candidate model IDs through the existing Pydantic contract.
 
 ---
 
-## Repository Layout
+## Testing and Quality Checks
 
-```text
-src/take_home_router/
-    classifier, routing policy, API, and CLI
-
-artifacts/
-    trained model and calibration files
-
-config/
-    router configuration and model catalog
-
-evidence/
-    offline benchmark summary
-
-examples/
-    sample API request
-
-frontend/
-    RouteForge browser console
-
-browser_extension/
-    Chrome/Chromium provider integration prototype
-
-tests/
-    unit, API, frontend, and browser-extension tests
-
-render.yaml
-    Render deployment configuration
-
-DEPLOY_FREE.md
-    Render deployment guide
-```
-
----
-
-## Quality Verification
-
-Run the complete verification suite with:
+Run the complete project check with:
 
 ```bash
 make check
 ```
 
-This runs the repository's configured tests, linting, and type checking.
+This runs:
 
-You can also run the test suite directly:
+- `ruff check`
+- `ruff format --check`
+- `pyright`
+- `pytest`
 
-```bash
-uv run pytest
+A successful check should report:
+
+```text
+All checks passed!
 ```
 
-The backend is intentionally provider-independent, so no model-provider API credentials are required to run the classifier and routing service.
+followed by successful formatting, type checking, and the complete test suite.
+
+The repository includes tests covering the classifier, routing policy, API behavior, configuration, browser integration, and project variant identity.
+
+---
+
+## Variant Identity
+
+RouteForge is intentionally the core S2 Sweep implementation at the savings setting.
+
+It is not a TrustRouter-plus-Burr integration and does not use the Burr framework at runtime.
+
+The repository also does not include the S2 A2 hybrid implementation or the WeightedEnsembleRouter.
+
+The bundled configuration identifies the classifier as:
+
+```text
+s2-savings-router
+```
+
+and the S2 artifact metadata includes the expected scalar features used by the classifier.
 
 ---
 
 ## Deployment
 
-RouteForge includes a Render Blueprint:
+RouteForge includes a Render Blueprint in:
 
 ```text
 render.yaml
 ```
 
-A free public demo can be deployed through Render using the repository.
-
-High-level deployment flow:
-
-1. Push the repository to GitHub.
-2. Create a Render Blueprint from the repository.
-3. Deploy the configured web service.
-4. Use `/healthz` as the service health endpoint.
-
-The repository also contains:
+and deployment documentation in:
 
 ```text
 DEPLOY_FREE.md
 ```
 
-with the deployment instructions and production scaling guidance.
+To deploy:
 
-Render's free web services can spin down after inactivity and have resource limitations. A free deployment should therefore be treated as a public demo rather than an SLA-backed production service.
+1. Push the repository to GitHub.
+2. Create a Render Blueprint from the repository.
+3. Deploy the web service.
 
----
+The deployment is intended as a public demonstration environment.
 
-## Security and Credentials
+Render Free web services can spin down after inactivity and have resource limitations. The free deployment should therefore not be represented as an SLA-backed production deployment.
 
-RouteForge does not require provider credentials for its core routing functionality.
-
-The browser extension does not store:
-
-- provider API keys
-- browser cookies
-- session tokens
-- browser credentials
-
-The backend does not call model providers.
-
-Provider-specific website interaction is isolated inside the browser integration layer.
+For production use, deploy with appropriate resources, monitoring, provider adapters, model registry management, and operational controls.
 
 ---
 
 ## Design Principles
 
-RouteForge intentionally separates four concerns:
+RouteForge follows a few deliberate design boundaries:
 
-### 1. Model intelligence
+### Provider independence
 
-The S2 classifier predicts model quality and token-related characteristics.
+The routing backend does not depend on a specific LLM provider.
 
-### 2. Routing policy
+### Select-only backend
 
-The policy converts those predictions into a quality/cost-aware routing decision and applies the configured exploration probability.
+The backend makes the routing decision and returns a model ID. It does not generate the final answer.
 
-### 3. Provider-independent API
+### Conservative browser integration
 
-The FastAPI service exposes a stable routing contract without coupling the classifier to a specific LLM provider.
+The browser extension only changes a provider's model selection when the mapping and visible UI control can be identified with sufficient confidence.
 
-### 4. Provider integration
+### Explicit compatibility boundary
 
-The browser extension handles provider-specific model labels and UI controls separately from the routing logic.
+Historical classifier model IDs are kept separate from provider-specific model labels.
 
-This keeps the core router testable while isolating unstable provider website behavior.
+### Safe fallback behavior
+
+When a provider mapping or UI control cannot be identified safely, RouteForge reports the routing decision without changing the provider page.
+
+### Reproducible artifacts
+
+The trained classifier, metadata, routing configuration, evidence summary, and test suite are included in the repository.
 
 ---
 
-## Current Scope
+## Summary
 
-RouteForge currently provides:
+RouteForge is a provider-independent intelligent model-routing system built around the core S2 Sweep implementation.
 
-- S2-based model routing
-- quality/cost-aware model selection
-- 70/30 scored-vs-random selection policy
-- candidate model filtering
-- FastAPI service
-- CLI
-- browser console
-- ChatGPT/Claude browser integration prototype
-- conservative provider model mapping
-- optional browser auto-submit
-- offline benchmark evidence
-- automated tests
-- Render deployment configuration
+It combines:
 
-The project is intentionally not a full LLM gateway or inference service. It makes the routing decision and exposes the selected model to the consuming application or integration layer.
+- An S2 classifier
+- Quality and token prediction
+- Quality/cost routing
+- Controlled exploration
+- FastAPI APIs
+- A command-line interface
+- A browser console
+- ChatGPT and Claude browser integration
+- Conservative provider model selection
+- Automated tests and type checking
+- Render deployment support
+
+The system's primary responsibility is to determine which model should handle a request.
+
+The actual generation step remains with the consuming application or provider integration.
